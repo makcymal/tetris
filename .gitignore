@@ -1,0 +1,9 @@
+/target
+
+/gnu-mingw
+/msvc
+
+*.dll
+*.lib
+
+.idea

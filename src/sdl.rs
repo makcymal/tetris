@@ -22,6 +22,7 @@ use {
 
 
 pub struct Sdl {
+    resolution: (u32, u32),
     canvas: Canvas<Window>,
     textureer: TextureCreator<WindowContext>,
     listener: EventPump,
@@ -41,10 +42,13 @@ impl Sdl {
         // creating window
         let window = video
             .window("Tetris", 800, 600)
-            .position_centered()
+            // .fullscreen()    // danger
+            .borderless()
             .opengl()
             .build()
             .expect("Failed to create window");
+
+        let resolution = window.size();
 
         // converting window into canvas
         let canvas = window
@@ -62,6 +66,7 @@ impl Sdl {
             .expect("Unable to access events");
 
         Sdl {
+            resolution,
             canvas,
             textureer,
             listener,
@@ -94,12 +99,12 @@ impl Sdl {
         if let Ok(mut square_texture) =
         self.textureer.create_texture_target(None, size, size) {
 
-            // this temporarly converts square_texture into canvas
+            // temporarly converting square_texture into canvas
             self.canvas.with_texture_canvas(&mut square_texture,
-                                            |texture| {
-                                                texture.set_draw_color(color.to_rgb());
-                                                texture.clear();
-                                            })
+                |texture| {
+                    texture.set_draw_color(color.to_rgb());
+                    texture.clear();
+                })
                 .expect("Failed to color texture");
 
             Some(square_texture)

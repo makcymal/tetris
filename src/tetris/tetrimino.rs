@@ -8,11 +8,12 @@ use {
 		},
 	},
 	super::{
-		geom::{
+		geometry::{
 			Direction::{
-				self, *,
+				self,
+				*,
 			},
-			Point,
+			Coord,
 			Segment,
 			Rectangle,
 		},
@@ -31,7 +32,7 @@ pub const N_TETRIMINOS: u8 = 7;
 #[derive(Debug)]
 pub struct Tetrimino {
 	// it's |+| in following tetrimino schemes
-	center: Point,
+	center: Coord<i8>,
 	// pos of remaining blocks
 	shape: [Direction; 3],
 	// rel means that each block's pos defines relatively to prev one
@@ -53,21 +54,21 @@ impl Tetrimino {
 		}
 	}
 
-	// returns bool means was shifting successful or not
-	pub fn shift(&mut self, map: &Map, dir: Direction) -> bool {
-		// motion vector represented as Point
-		let motion: Point;
-
-		// only shifting to the right or to the left
-		match dir {
-			Rgt | Lft => motion = Point::from(dir),
-			_ => return false,
+	// returns bool means was pushing successful or not
+	pub fn push(&mut self, map: &mut Map, dir: Direction) -> bool {
+		// pushing to the top is not allowed
+		if dir == Top {
+			return false;
 		}
 
-		// checking possibility of shifting
+		// motion vector represented as Coord
+		let motion = dir.into();
+		
+		// checking possibility of motion
 		self.center += &motion;
 
-		if map.validate(self) {
+		// put tetrimino on the map if it's possible
+		if map.put(self) {
 			true
 		} else {
 			self.center -= &motion;
@@ -76,7 +77,7 @@ impl Tetrimino {
 	}
 
 	// returns bool means was rotation successful or not
-	pub fn rotate(&mut self, map: &Map, clockwise: bool) -> bool {
+	pub fn rotate(&mut self, map: &mut Map, clockwise: bool) -> bool {
 		// bounds before rotation
 		let old_bounds = self.bounds();
 
@@ -121,17 +122,17 @@ impl Tetrimino {
 
 		// total offset in which tetrimino after rotation may be shifted
 		let offset =
-			Rectangle::from((&Point { x: offset_lft, y: offset_top },
-							 &Point { x: offset_rgt, y: 0		   }));
+			Rectangle::from((&Coord { x: offset_lft, y: offset_top },
+							 &Coord { x: offset_rgt, y: 0		   }));
 
 
 		// iterating by all appropriate motion vectors
 		for motion in offset.iter() {
 			self.center += &motion;
 		
-			// checking possibility of shifting
-			if map.validate(self) {
-				return true;
+			// put tetrimino on the map if it's possible
+			if map.put(self) {
+				return true
 			} else {
 				self.center -= &motion;
 			}
@@ -139,8 +140,8 @@ impl Tetrimino {
 
 		// it's reachable only if rotation is impossible
 		for direction in &mut self.shape {
-			direction.rotate(!clockwise);
 			self.center -= &motion;	// not from for loop
+			direction.rotate(!clockwise);
 		}
 		
 		false
@@ -148,7 +149,7 @@ impl Tetrimino {
 
 	// returns bounds on the x axis & on the y axis
 	// which completely contains tetrimino
-	pub fn bounds(&self) -> Rectangle {
+	pub fn bounds(&self) -> Rectangle<i8> {
 		// now it has only one point 
 		let mut rect = Rectangle::from((&self.center, &self.center));
 
@@ -270,12 +271,12 @@ pub struct TetriminoIter<'a> {
 	// number of block whose point will be yielded by next()
 	index: usize,
 	// point that is needed to compute next
-	point: Point,
+	point: Coord<i8>,
 }
 
 
 impl Iterator for TetriminoIter<'_> {
-	type Item = Point;
+	type Item = Coord<i8>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		// there are only four blocks
@@ -292,13 +293,15 @@ impl Iterator for TetriminoIter<'_> {
 		// computing item relatively to point
 		let mut item = self.point;
 
-		match self.shape[self.index - 1] {
-			Top => item += (0, 1),
-			Rgt => item += (1, 0),
-			Dwn => item += (0, -1),
-			Lft => item += (-1, 0),
-			_ => (),
-		}
+		item += &self.shape[self.index - 1];
+
+		// match self.shape[self.index - 1] {
+		// 	Top => item += (0, 1),
+		// 	Rgt => item += (1, 0),
+		// 	Dwn => item += (0, -1),
+		// 	Lft => item += (-1, 0),
+		// 	_ => (),
+		// }
 
 		self.index += 1;
 

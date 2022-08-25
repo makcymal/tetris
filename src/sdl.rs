@@ -41,12 +41,9 @@ const SQUARE_SIZE: u32 = 50;
 
 pub struct Sdl<'a> {
 	canvas: Canvas<Window>,
+	textureer: Box<TextureCreator<WindowContext>>,
 	listener: EventPump,
 	squares: HashMap<Color, Texture<'a>>,
-}
-
-pub struct Textureer {
-	textureer: TextureCreator<WindowContext>
 }
 
 impl<'a> Sdl<'a> {
@@ -69,23 +66,24 @@ impl<'a> Sdl<'a> {
 			.expect("Failed to create window");
 
 		// converting window into canvas
-		let mut canvas = window
+		let canvas = window
 			.into_canvas()
 			.target_texture()
 			.present_vsync()
 			.build()
 			.expect("Failed to create canvas");
 
+		let textureer = Box::new(canvas.texture_creator());
+
 		// event handler
 		let listener = context.event_pump()
 			.expect("Unable to access events");
-
-		let squares = HashMap::with_capacity(N_COLORS);
 				
 		Sdl {
 			canvas,
+			textureer,
 			listener,
-			squares,
+			squares: HashMap::with_capacity(N_COLORS),
 		}
 	}
 
@@ -107,37 +105,21 @@ impl<'a> Sdl<'a> {
 		self.listener.poll_iter()
 	}
 
-	pub fn textureer(&self) -> TextureCreator<WindowContext> {
-		self.canvas.texture_creator()
-	}
-
-	pub fn squares(&mut self, textureer: &'a TextureCreator<WindowContext>) {
+	pub fn squares(&mut self) {
 		for color in Color::all() {
-			let square = square_texture(&mut self.canvas,
-										textureer,
-										color);
+			let mut square = self.textureer
+				.create_texture_target(None, SQUARE_SIZE, SQUARE_SIZE)
+				.expect("Failed to create texture");
+
+			// temporarly converting square_texture into canvas
+			self.canvas.with_texture_canvas(&mut square,
+				|texture| {
+					texture.set_draw_color(color.to_rgb());
+					texture.clear();
+				})
+				.expect("Failed to color texture");
 
 			self.squares.insert(color, square);
 		}
 	}
-}
-
-// texture will be stored in sdl.squares and used in rendering
-fn square_texture<'a>(canvas: &mut Canvas<Window>,
-				  textureer: &'a TextureCreator<WindowContext>,
-				  color: Color) -> Texture<'a> {
-
-	let mut square = textureer
-		.create_texture_target(None, SQUARE_SIZE, SQUARE_SIZE)
-		.expect("Failed to create texture");
-
-	// temporarly converting square_texture into canvas
-	canvas.with_texture_canvas(&mut square,
-		|texture| {
-			texture.set_draw_color(color.to_rgb());
-			texture.clear();
-		})
-		.expect("Failed to color texture");
-
-	square
 }

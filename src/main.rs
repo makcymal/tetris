@@ -7,6 +7,7 @@ mod tetris;
 use {
 	sdl::Sdl,
 	tetris::Tetris,
+	color::Color,
 	sdl2::{
 		event::Event,
 		keyboard::Keycode,
@@ -24,9 +25,6 @@ use {
 fn main() {
 	let mut tetris = Tetris::new();
 	let mut sdl = Sdl::init();
-
-	let textureer = sdl.textureer();
-	sdl.squares(&textureer);
 
 	// tetris proceeding, regard to the current level
 	let mut time_to_proceed = true;

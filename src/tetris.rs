@@ -5,7 +5,10 @@ mod random;
 mod tetrimino;
 
 use {
-	map::Map,
+	map::{
+		Map,
+		MapIter,
+	},
 	geometry::{
 		Direction::{
 			self,
@@ -135,5 +138,9 @@ impl Tetris {
 	// shows how long will tetrimino hang without descending
 	pub fn level_time(&self) -> Duration {
 		Duration::from_millis(LEVEL_TIMES[min(self.level, 9)])
+	}
+
+	pub fn map_iter(&self) -> MapIter {
+		self.map.iter()
 	}
 }

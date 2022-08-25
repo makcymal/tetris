@@ -189,30 +189,29 @@ pub struct MapIter<'a> {
 }
 
 impl Iterator for MapIter<'_> {
-	type Item = Color;
+	type Item = (Coord<usize>, Color);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.curr.y > 15 {
 		   	return None
 		}
 
-		let x = self.curr.x;
-		let y = self.curr.y;
+		let coord = self.curr;
 
 		let color = 
-			if self.map[x][y] == Non {
+			if self.map[coord.x][coord.y] == Non {
 				self.bg
 			} else {
-				self.map[x][y]
+				self.map[coord.x][coord.y]
 			};
 
-		if x == 9 {
+		if coord.x == 9 {
 			self.curr.y += 1;
 			self.curr.x = 0;
 		} else {
 			self.curr.x += 1;
 		}
 
-		Some(color)
+		Some((coord, color))
 	}
 }

@@ -1,115 +1,143 @@
 use {
-    crate::{
-        color::Color,
-    },
-    sdl2::{
-        video::{
-            Window, WindowContext,
-        },
-        render::{
-            Canvas, Texture, TextureCreator,
-        },
-        event::{
-            Event,
-            EventPollIterator,
-        },
-        rect::Rect,
-        keyboard::Keycode,
-        VideoSubsystem,
-        EventPump,
-    },
+	crate::{
+		color::{
+			Color,
+			N_COLORS,
+		},
+		tetris::{
+			Tetris,
+		},
+	},
+	sdl2::{
+		video::{
+			Window, WindowContext,
+		},
+		render::{
+			Canvas, Texture, TextureCreator,
+		},
+		event::{
+			Event,
+			EventPollIterator,
+		},
+		rect::Rect,
+		keyboard::Keycode,
+		VideoSubsystem,
+		EventPump,
+	},
+	std::{
+		collections::{
+			HashMap,
+			hash_map::{
+				Entry,
+			},
+		},
+	},
 };
 
 
-pub struct Sdl {
-    resolution: (u32, u32),
-    canvas: Canvas<Window>,
-    textureer: TextureCreator<WindowContext>,
-    listener: EventPump,
+const WINDOW_SIZE: u32 = 1000;
+const SQUARE_SIZE: u32 = 50;
+
+
+pub struct Sdl<'a> {
+	canvas: Canvas<Window>,
+	listener: EventPump,
+	squares: HashMap<Color, Texture<'a>>,
 }
 
-impl Sdl {
-    pub fn init() -> Sdl {
-        // initializing sdl
-        let context = sdl2::init()
-            .expect("Unable to init SDL");
+pub struct Textureer {
+	textureer: TextureCreator<WindowContext>
+}
 
-        // getting video subsystem
-        let video = context
-            .video()
-            .expect("Unable to access video subsystem");
+impl<'a> Sdl<'a> {
+	pub fn init() -> Sdl<'a> {
+		// initializing sdl
+		let context = sdl2::init()
+			.expect("Unable to init SDL");
 
-        // creating window
-        let window = video
-            .window("Tetris", 800, 600)
-            // .fullscreen()    // danger
-            .borderless()
-            .opengl()
-            .build()
-            .expect("Failed to create window");
+		// getting video subsystem
+		let video = context
+			.video()
+			.expect("Unable to access video subsystem");
 
-        let resolution = window.size();
+		// creating window
+		let window = video
+			.window("Tetris", WINDOW_SIZE, WINDOW_SIZE)
+			.position_centered()
+			.opengl()
+			.build()
+			.expect("Failed to create window");
 
-        // converting window into canvas
-        let canvas = window
-            .into_canvas()
-            .target_texture()
-            .present_vsync()
-            .build()
-            .expect("Failed to create canvas");
+		// converting window into canvas
+		let mut canvas = window
+			.into_canvas()
+			.target_texture()
+			.present_vsync()
+			.build()
+			.expect("Failed to create canvas");
 
-        // this thing can create textures
-        let textureer = canvas.texture_creator();
+		// event handler
+		let listener = context.event_pump()
+			.expect("Unable to access events");
 
-        // event handler
-        let listener = context.event_pump()
-            .expect("Unable to access events");
+		let squares = HashMap::with_capacity(N_COLORS);
+				
+		Sdl {
+			canvas,
+			listener,
+			squares,
+		}
+	}
 
-        Sdl {
-            resolution,
-            canvas,
-            textureer,
-            listener,
-        }
-    }
+	pub fn render(&mut self, tetris: &Tetris) {
+		// preparing to re-rendering
+		self.canvas.clear();
 
-    pub fn listen(&mut self) -> EventPollIterator {
-        self.listener.poll_iter()
-    }
+		// coord related to the tetris map
+		for (coord, color) in tetris.map_iter() {
+			
+		}
 
-    pub fn set_color(&mut self, color: Color) {
-        // setting default color
-        self.canvas.set_draw_color(color.to_rgb());
-    }
+		// updating canvas
+		self.canvas.present();
+	}
 
-    pub fn clear_canvas(&mut self) {
-        // preparing for drawing
-        self.canvas.clear();
-    }
+	// returns iterator by events to main.rs
+	pub fn listen(&mut self) -> EventPollIterator {
+		self.listener.poll_iter()
+	}
 
-    pub fn update_canvas(&mut self) {
-        self.canvas.present();
-    }
+	pub fn textureer(&self) -> TextureCreator<WindowContext> {
+		self.canvas.texture_creator()
+	}
 
-    pub fn create_rect(&mut self,
-                       color: Color,
-                       size: u32) -> Option<Texture> {
+	pub fn squares(&mut self, textureer: &'a TextureCreator<WindowContext>) {
+		for color in Color::all() {
+			let square = square_texture(&mut self.canvas,
+										textureer,
+										color);
 
-        // trying to create rect texture
-        if let Ok(mut square_texture) =
-        self.textureer.create_texture_target(None, size, size) {
+			self.squares.insert(color, square);
+		}
+	}
+}
 
-            // temporarly converting square_texture into canvas
-            self.canvas.with_texture_canvas(&mut square_texture,
-                |texture| {
-                    texture.set_draw_color(color.to_rgb());
-                    texture.clear();
-                })
-                .expect("Failed to color texture");
+// texture will be stored in sdl.squares and used in rendering
+fn square_texture<'a>(canvas: &mut Canvas<Window>,
+				  textureer: &'a TextureCreator<WindowContext>,
+				  color: Color) -> Texture<'a> {
 
-            Some(square_texture)
-        } else {
-            None
-        }
-    }
+	let mut square = textureer
+		.create_texture_target(None, SQUARE_SIZE, SQUARE_SIZE)
+		.expect("Failed to create texture");
+
+	// temporarly converting square_texture into canvas
+	canvas.with_texture_canvas(&mut square,
+		|texture| {
+			texture.set_draw_color(color.to_rgb());
+			texture.clear();
+		})
+		.expect("Failed to color texture");
+
+	square
 }

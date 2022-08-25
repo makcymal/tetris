@@ -1,10 +1,13 @@
-use sdl2::pixels::Color as SdlColor;
+use {
+	sdl2::pixels::Color as SdlColor,
+	std::hash::Hash,
+};
 
 
 pub const N_COLORS: usize = 8;
 
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Color {
 	Red,
 	Grn,

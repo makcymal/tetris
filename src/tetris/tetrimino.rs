@@ -54,9 +54,9 @@ impl Tetrimino {
 		}
 	}
 
-	// returns bool means was pushing successful or not
-	pub fn push(&mut self, map: &mut Map, dir: Direction) -> bool {
-		// pushing to the top is not allowed
+	// returns bool means was shifting successful or not
+	pub fn shift(&mut self, dir: Direction, map: &mut Map) -> bool {
+		// shifting to the top is not allowed
 		if dir == Top {
 			return false;
 		}
@@ -77,7 +77,7 @@ impl Tetrimino {
 	}
 
 	// returns bool means was rotation successful or not
-	pub fn rotate(&mut self, map: &mut Map, clockwise: bool) -> bool {
+	pub fn rotate(&mut self, clockwise: bool, map: &mut Map) -> bool {
 		// bounds before rotation
 		let old_bounds = self.bounds();
 

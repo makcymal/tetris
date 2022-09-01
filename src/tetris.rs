@@ -1,10 +1,11 @@
 mod geometry;
 mod map;
 mod random;
-// mod score;
+mod score;
 mod tetrimino;
 
 use {
+	crate::game::Msg,
 	map::{
 		Map,
 		MapIter,
@@ -18,13 +19,6 @@ use {
 	tetrimino::{
 		Generator,
 		Tetrimino,
-	},
-	sdl2::{
-		keyboard::{
-			Keycode,
-			Mod,
-		},
-		event::Event,
 	},
 	std::{
 		time::{
@@ -56,7 +50,7 @@ impl Tetris {
 	// makes all setup for the game
 	pub fn new() -> Tetris {
 		let generator = Generator::new();
-		let tetrimino = Some(generator.gen());
+		let tetrimino = None;
 		let map = Map::new(generator.map_bg());
 
 		Tetris {
@@ -71,8 +65,10 @@ impl Tetris {
 
 	// generating, descenting or killing tetrimino
 	pub fn proceed(&mut self) {
+		// println!("{:?}", self.tetrimino);
 		// generating a new one tetrimino
 		if self.tetrimino.is_none() {
+			// println!("new tetrimino");
 			self.tetrimino = Some(self.generator.gen());
 		}			
 
@@ -80,16 +76,23 @@ impl Tetris {
 		let tetrimino = self.tetrimino.as_mut().unwrap();
 
 		// trying to descent existing tetrimino
-		if !tetrimino.push(&mut self.map, Dwn) {
+		if !tetrimino.shift(Dwn, &mut self.map) {
 			// leave tetrimino's corpse on the map
 			self.map.kill();
 			self.tetrimino = None;
 
 			// burn completed lines
-			let (lines, score) = self.map.burn(self.level + 1);
+			let lines = self.map.burn();
 			// increase lines, score, level
 			self.lines += lines;
-			self.score += score;
+			self.score += match lines {
+				0 => 0,
+				1 => 40 * (self.level + 1),
+				2 => 100 * (self.level + 1),
+				3 => 300 * (self.level + 1),
+				4 => 1200 * (self.level + 1),
+				_ => unreachable!(),
+			};
 
 			if self.lines >= LEVEL_LINES[self.level] {
 				self.level += 1;
@@ -98,41 +101,35 @@ impl Tetris {
 	}
 
 	// handling the given event related to the game mechanics
-	pub fn react_to(&mut self, event: Event) {
+	pub fn react_to(&mut self, msg: Msg) {
 		// very soon a new one tetrimino will be generated
 		if self.tetrimino.is_none() {
 			return;
 		}
+		// println!("{:?}\n", msg);
 
 		// unwrap won't panic
 		let tetrimino = self.tetrimino.as_mut().unwrap();
 
-		match event {
-			// right
-			Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
-				println!("right");
-				tetrimino.push(&mut self.map, Rgt);
-			},
-			// left
-			Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
-				println!("left");
-				tetrimino.push(&mut self.map, Lft);
-			},
-			// ctrl + right
-			Event::KeyDown { keycode: Some(Keycode::Right),
-							 keymod: Mod::LCTRLMOD, .. } => {
-				println!("ctrl + right");
-				tetrimino.rotate(&mut self.map, true);
-			},
-			// ctrl + left
-			Event::KeyDown { keycode: Some(Keycode::Left),
-							 keymod: Mod::LCTRLMOD, .. } => {
-				println!("ctrl + left");
-				tetrimino.rotate(&mut self.map, false);
-			},
-			// the rest isn't interesting
-			_ => (),
+		match msg {
+            Msg::Proceed => self.proceed(),
+            Msg::ShiftRgt =>
+            	_ = tetrimino.shift(Rgt, &mut self.map),
+            Msg::ShiftLft =>
+            	_ = tetrimino.shift(Lft, &mut self.map),
+            Msg::Clockwise =>
+            	_ = tetrimino.rotate(true, &mut self.map),
+            Msg::Counterclockwise =>
+            	_ = tetrimino.rotate(false, &mut self.map),
+            _ => unreachable!(),
+        };
+	}
+
+	pub fn print_map(&self) {
+		for (coord, color) in self.map.iter() {
+			print!("{:?} ", color);
 		}
+		println!("\n");
 	}
 
 	// shows how long will tetrimino hang without descending

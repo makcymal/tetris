@@ -46,7 +46,7 @@ pub struct Map {
 	// if color is Non then block is empty else it's not
 	map: [[Color; 16]; 10],
 	// alive tetrimino that will be moved
-	tetrimino: Vec<Coord<usize>>,
+	drawed: Vec<Coord<usize>>,
 	// bg is selected randomly by tetrimino generator
 	bg: Color,
 }
@@ -55,7 +55,7 @@ impl Map {
 	pub fn new(bg: Color) -> Map {
 		Map {
 			map: [[Non; 16]; 10],
-			tetrimino: vec!(),
+			drawed: vec!(),
 			bg,
 		}
 	}
@@ -70,34 +70,44 @@ impl Map {
 
 	// validate tetrimino's pos and if it's valid puts it on map
 	pub fn put(&mut self, tetrimino: &Tetrimino) -> bool {
-		// clear prev tetrimino's pos
-		self.kill();
+		for tile in &self.drawed {
+			self.map[tile.x][tile.y] = Non;
+		}
 
-		// blocks validated for putting on the map
-		let mut validated: Vec<Coord<usize>> = vec!();
+		// drawable tiles
+		let mut drawable: Vec<Coord<usize>> = vec!();
 
-		for block in tetrimino.iter() {
-			let x = block.x as usize;
-			let y = block.y as usize;
+		for tile in tetrimino.iter() {
+			if tile.x < 0 || tile.y < 0 {
+				for tile in &self.drawed {
+			   		self.map[tile.x][tile.y] = tetrimino.color;
+			   	}
+			   	return false;
+			}
 
-			// if block is invalid
+			let x = tile.x as usize;
+			let y = tile.y as usize;
+
+			// if tile is invalid
 			if x < 0 || 9 < x || y < 0 ||
 			   y < 16 && self.map[x][y] != Non {
-				for block in validated {
-					self.map[block.x][block.y] = Non;
-				}
+			   	for tile in &self.drawed {
+			   		self.map[tile.x][tile.y] = tetrimino.color;
+			   	}
 				return false
 			}
 
-			// if it's valid for putting on the map
+			// if it's drawable
 			if y < 16 {
-				validated.push(Coord::from((x, y)));
+				drawable.push(Coord::from((x, y)));
 			}
 		}
 
 		// it's reachable only if all blocks are valid
-		for block in validated {
-			self.map[block.x][block.y] = tetrimino.color;
+		self.drawed.clear();
+		for tile in drawable {
+			self.map[tile.x][tile.y] = tetrimino.color;
+			self.drawed.push(tile);
 		}
 
 		true
@@ -105,59 +115,34 @@ impl Map {
 
 	// leaves tetrimino as blocks in the map
 	pub fn kill(&mut self) {
-		for block in &self.tetrimino {
-			self.map[block.x][block.y] = Non;
-		}
+		self.drawed.clear();
 	}
 
 	// burns completes lines, returns (burned lines, earned score)
-	pub fn burn(&mut self, level: usize) -> (usize, usize) {
-		let mut score = 0;
+	pub fn burn(&mut self) -> usize {
+		let mut lines = 0;
 		let mut serial = 0;
-		let mut prev_completed = false;
 
-		// iterating by lines up from the bottom
-		'lines: for y in 0..16 {
-			// iterating by blocks in line
-			for x in 0..10 {
-				// if the line isn't completed
-				if self.map[x][y] == Non {
-					// it's time to burn
-					if prev_completed {
-						self.burn_from(y, serial);
-
-						score += match serial {
-							1 => 40 * level,
-							2 => 100 * level,
-							3 => 300 * level,
-							4 => 1200 * level,
-							_ => unreachable!(),
-						};
-						prev_completed = false;
-					}
-
-					// it doesn't make sense to iterate further
-					continue 'lines;
-				}
-			}
-
-			// if the line is completed
-			// it's time to update range in which lines will be burnt
-			if prev_completed {
+		for y in (0..16).rev() {
+			if self.line_completed(y) {
 				serial += 1;
 			} else {
+				self.burn_from(y + 1, serial);
+				lines += serial;
 				serial = 0;
 			}
-
-			prev_completed = true;
 		}
 
-		(serial, score)
+		self.burn_from(0, serial);
+		lines += serial;
+		lines
 	}
 
-	// burns line of given number starting with from
-	fn burn_from(&mut self, from: usize, serial: usize) {
-		for y in (from + serial)..16 {
+	// burns line of serial number in [line, line + serial)
+	fn burn_from(&mut self, line: usize, serial: usize) {
+		if serial == 0 { return }
+
+		for y in (line + serial)..16 {
 			for x in 0..10 {
 				self.map[x][y - serial] = self.map[x][y];
 			}
@@ -168,6 +153,15 @@ impl Map {
 				self.map[x][y] = Non;
 			}
 		}
+	}
+
+	fn line_completed(&self, y: usize) -> bool {
+		for x in 0..9 {
+			if self.map[x][y] == Non {
+				return false;
+			}
+		}
+		true
 	}
 
 	pub fn iter(&self) -> MapIter {
